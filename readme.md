@@ -1,6 +1,6 @@
 # Mute mic
 
-Mute default capture device (typically microphone) using tray icon click or custom shortcut.
+Mute default capture device (typically microphone) using tray icon click, custom shortcut or quick volume change (for headsets, lacking mic mute button).
 
 ![Image](img.png?raw=true "Image")
 
