@@ -8,6 +8,7 @@ using System.IO;
 using System.Media;
 using System.Reactive;
 using System.Windows.Forms;
+using MicMute.CustomTriggers;
 
 
 namespace MicMute
@@ -34,9 +35,15 @@ namespace MicMute
         private readonly string registryDeviceId = "DeviceId";
         private readonly string registryDeviceName = "DeviceName";
 
+        private readonly string registryMuteOnVolumeDownUp = "MuteOnVolumeDownUp";
+        private readonly string registryUnMuteOnVolumeUpDown = "UnMuteOnVolumeUpDown";
+
         private string selectedDeviceId;
         private string selectedDeviceName;
         private MicSelectorForm micSelectorForm;
+
+        private bool muteOnVolumeDownUp;
+        private bool unMuteOnVolumeUpDown;
 
 
         enum MicStatus
@@ -112,10 +119,34 @@ namespace MicMute
                 if (!hotkeyBinder.IsHotkeyAlreadyBound(unMuteHotkey)) hotkeyBinder.Bind(unMuteHotkey).To(UnMuteMicStatus);
             }
 
+            muteOnVolumeDownUp = Convert.ToBoolean(registryKey.GetValue(registryMuteOnVolumeDownUp) ?? 0);
+            unMuteOnVolumeUpDown = Convert.ToBoolean(registryKey.GetValue(registryUnMuteOnVolumeUpDown) ?? 0);
+
+            cbMuteOnVolumeDownUp.Checked = muteOnVolumeDownUp;
+            cbUnMuteOnVolumeUpDown.Checked = unMuteOnVolumeUpDown;
+
             //AudioController.AudioDeviceChanged.Subscribe(x =>
             //{
             //    Debug.WriteLine("{0} - {1}", x.Device.Name, x.ChangedType.ToString());
             //});
+
+            // Using volume up/down events for mic control
+            IDevice defaultPlaybackDevice = new CoreAudioController().DefaultPlaybackDevice;
+            IMuteEvent volumeObserver = new VolumeChangeSequenceObserver(defaultPlaybackDevice);
+            volumeObserver.OnMute += VolumeObserver_OnMute;
+            volumeObserver.OnUnMute += VolumeObserver_OnUnMute;
+        }
+
+        private void VolumeObserver_OnMute()
+        {
+            if (muteOnVolumeDownUp)
+                MuteMicStatus();
+        }
+
+        private void VolumeObserver_OnUnMute()
+        {
+            if (unMuteOnVolumeUpDown)
+                UnMuteMicStatus();
         }
 
         private void OnMuteChanged(DeviceMuteChangedArgs next)
@@ -157,7 +188,12 @@ namespace MicMute
         public void UpdateStatus(IDevice device)
         {
             MicStatus newStatus = (device != null) ? (device.IsMuted ? MicStatus.Off : MicStatus.On) : MicStatus.Error;
-            bool playSound = currentStatus != MicStatus.Initial && currentStatus != newStatus;
+            UpdateStatus(device, newStatus);
+        }
+
+        private void UpdateStatus(IDevice device, MicStatus newStatus, bool alwaysPlaySound = false)
+        {
+            bool playSound = (currentStatus != MicStatus.Initial && currentStatus != newStatus) || alwaysPlaySound;
             currentStatus = newStatus;
             switch (currentStatus)
             {
@@ -175,6 +211,7 @@ namespace MicMute
                     break;
             }
         }
+
         private void UpdateIcon(Icon icon, string tooltipText)
         {
             this.icon.Icon = icon;
@@ -283,6 +320,11 @@ namespace MicMute
                     }
                 }
 
+                registryKey.SetValue(registryMuteOnVolumeDownUp, Convert.ToInt32(cbMuteOnVolumeDownUp.Checked), RegistryValueKind.DWord);
+                registryKey.SetValue(registryUnMuteOnVolumeUpDown, Convert.ToInt32(cbUnMuteOnVolumeUpDown.Checked), RegistryValueKind.DWord);
+
+                muteOnVolumeDownUp = cbMuteOnVolumeDownUp.Checked;
+                unMuteOnVolumeUpDown = cbUnMuteOnVolumeUpDown.Checked;
             }
         }
 
