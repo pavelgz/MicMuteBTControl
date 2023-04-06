@@ -1,6 +1,10 @@
 # Mute mic
 
-Mute default capture device (typically microphone) using tray icon click, custom shortcut or quick volume change (for headsets, lacking mic mute button).
+This is a fork of [MicMute](https://github.com/Anc813/MicMute) with ability to invoke mute/unmute from headsets, that have a volume control option, but are lacking physical mic mute button, like sony wh-1000xm5, for example.
+
+Changing volume down and back up within one second results in mic mute and changing it the other way (up, then down) unmutes mic.
+
+These triggers can be enabled in "Hotkey" menu.
 
 ![Image](img.png?raw=true "Image")
 
