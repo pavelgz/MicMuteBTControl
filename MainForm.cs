@@ -9,6 +9,8 @@ using System.Media;
 using System.Reactive;
 using System.Windows.Forms;
 using MicMute.CustomTriggers;
+using System.Collections.Generic;
+using System.Linq;
 
 
 namespace MicMute
@@ -38,12 +40,18 @@ namespace MicMute
         private readonly string registryMuteOnVolumeDownUp = "MuteOnVolumeDownUp";
         private readonly string registryUnMuteOnVolumeUpDown = "UnMuteOnVolumeUpDown";
 
+        private readonly string registryVolumeChangeStepForToggle = "VolumeChangeStepForToggle";
+
         private string selectedDeviceId;
         private string selectedDeviceName;
         private MicSelectorForm micSelectorForm;
 
         private bool muteOnVolumeDownUp;
         private bool unMuteOnVolumeUpDown;
+
+        private int volumeChangeStepForToggle;
+
+        private List<IMuteEvent> customMuteEvents = new List<IMuteEvent>();
 
 
         enum MicStatus
@@ -124,6 +132,9 @@ namespace MicMute
 
             cbMuteOnVolumeDownUp.Checked = muteOnVolumeDownUp;
             cbUnMuteOnVolumeUpDown.Checked = unMuteOnVolumeUpDown;
+            
+            volumeChangeStepForToggle = Convert.ToInt32(registryKey.GetValue(registryVolumeChangeStepForToggle) ?? 3);
+            tbVolumeChangeStep.Text = volumeChangeStepForToggle.ToString();
 
             //AudioController.AudioDeviceChanged.Subscribe(x =>
             //{
@@ -132,9 +143,12 @@ namespace MicMute
 
             // Using volume up/down events for mic control
             IDevice defaultPlaybackDevice = new CoreAudioController().DefaultPlaybackDevice;
-            IMuteEvent volumeObserver = new VolumeChangeSequenceObserver(defaultPlaybackDevice);
+            IMuteEvent volumeObserver = new VolumeChangeSequenceObserver(defaultPlaybackDevice, volumeChangeStepForToggle);
             volumeObserver.OnMute += VolumeObserver_OnMute;
             volumeObserver.OnUnMute += VolumeObserver_OnUnMute;
+
+            customMuteEvents.Clear();
+            customMuteEvents.Add(volumeObserver);
         }
 
         private void VolumeObserver_OnMute()
@@ -325,6 +339,16 @@ namespace MicMute
 
                 muteOnVolumeDownUp = cbMuteOnVolumeDownUp.Checked;
                 unMuteOnVolumeUpDown = cbUnMuteOnVolumeUpDown.Checked;
+
+                if (Int32.TryParse(tbVolumeChangeStep.Text, out int tbVolumeChangeStepValue))
+                {
+                    registryKey.SetValue(registryVolumeChangeStepForToggle, tbVolumeChangeStepValue, RegistryValueKind.DWord);
+                    foreach (var cso in customMuteEvents.OfType<VolumeChangeSequenceObserver>())
+                    {
+                        cso.ChangeVolumeChangeStepForToggle(tbVolumeChangeStepValue);
+                    }
+
+                }
             }
         }
 

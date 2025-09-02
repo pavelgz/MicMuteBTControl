@@ -14,6 +14,7 @@ namespace MicMute.CustomTriggers
     {
         const int MAX_HISTORY_QUEUE_SIZE = 10;
         private LinkedList<VolumeLevelHistoryItem> _volumeChangeHistory = new LinkedList<VolumeLevelHistoryItem>();
+        protected int _volumeChangeStepForToggle;
 
         public event MuteToggled OnMute;
         public event MuteToggled OnUnMute;
@@ -23,13 +24,20 @@ namespace MicMute.CustomTriggers
             
         }
 
-        public VolumeChangeSequenceObserver(IDevice volumeDevice)
+        public VolumeChangeSequenceObserver(IDevice volumeDevice, int volumeChangeStepForToggle)
         {
+            _volumeChangeStepForToggle = volumeChangeStepForToggle;
+            
             var startVolume = volumeDevice.Volume;
             var vlhi = new VolumeLevelHistoryItem(startVolume);
             _volumeChangeHistory.AddLast(vlhi);
 
             volumeDevice.VolumeChanged.Subscribe(this);
+        }
+
+        public void ChangeVolumeChangeStepForToggle(int newVolumeChangeStepForToggle)
+        {
+            _volumeChangeStepForToggle = newVolumeChangeStepForToggle;
         }
 
         public void OnCompleted()
@@ -57,9 +65,13 @@ namespace MicMute.CustomTriggers
             var prev = current?.Previous;
             var prev2 = prev?.Previous;
 
+            var lastStepChange = Math.Abs(current.Value.Volume - prev.Value.Volume);
+            var twoStepsChange = Math.Abs(current.Value.Volume - prev2.Value.Volume);
+
             // if volume goes up and down (or down and up) same level within 1 second
             if (prev2 != null &&
-                Math.Abs(current.Value.Volume - prev2.Value.Volume) < 1 &&
+                twoStepsChange < 1 &&
+                Math.Abs(lastStepChange - _volumeChangeStepForToggle) < 1 &&
                 (current.Value.Timestamp - prev.Value.Timestamp).TotalSeconds < 1)
             {
                 if (current.Value.Volume > prev.Value.Volume)
